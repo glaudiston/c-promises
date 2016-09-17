@@ -1,30 +1,7 @@
-// REF https://computing.llnl.gov/tutorials/pthreads/#WhyPthreads
-#include <stdio.h>
-#include <pthread.h>
-#include <stdlib.h>
-#include <stdarg.h>
+#include <promises.h>
 
 int promises=0;
-struct Promise;
-typedef void *( *PromiseCallBackFunctionPointer )( struct Promise *, void * );
-typedef struct Promise *( *PromiseFunctionPointer )( struct Promise *, PromiseCallBackFunctionPointer );
-typedef void ( *PromiseBaseFunctionPointer )( struct Promise *, PromiseCallBackFunctionPointer, PromiseCallBackFunctionPointer );
-
-typedef struct Promise{
-	enum { PromiseStatePending, PromiseStateFulfilled, PromiseStateRejected } state;
-	PromiseFunctionPointer then;
-	PromiseFunctionPointer catch;
-	PromiseFunctionPointer whatever;
-	void * lastResult;
-	// internal items
-	int _promiseThenArrayLength;
-	PromiseCallBackFunctionPointer * _promiseThenArray;
-	int _promiseCatchArrayLength;
-	PromiseCallBackFunctionPointer * _promiseCatchArray;
-	int _promiseWhateverArrayLength;
-	PromiseCallBackFunctionPointer * _promiseWhateverArray;
-} Promise;
-
+// REF https://computing.llnl.gov/tutorials/pthreads/#WhyPthreads
 /*
 void * PromiseThreadFunction()
 {
@@ -52,22 +29,45 @@ Promise * setPromiseThen(Promise *p, PromiseCallBackFunctionPointer thenCallBack
 	return p;
 }
 
-Promise setPromiseCatch(Promise *p, PromiseCallBackFunctionPointer catchCallBack)
+Promise * setPromiseCatch(Promise *p, PromiseCallBackFunctionPointer catchCallBack)
 {
 	printf("DBG: catch value set for promise\n"); fflush(stdout);
-	return *p;
+	// printf("DBG: size %i..\n", sizeof(FunctionPointer)); fflush(stdout);
+	p->_promiseCatchArray=realloc(p->_promiseCatchArray, sizeof(PromiseCallBackFunctionPointer) * ++(p->_promiseCatchArrayLength));
+	printf("DBG: realocated, set...%i\n", (p->_promiseCatchArrayLength)); fflush(stdout);
+	p->_promiseCatchArray[(p, p->_promiseCatchArrayLength)-1]=catchCallBack;
+	if ( p->state == PromiseStateRejected ){
+		printf("DBG: lets call it\n"); fflush(stdout);
+		catchCallBack(p, p->lastResult);
+	}
+	//printf("DBG: return p %i\n", (int)p);fflush(stdout);
+	return p;
 }
 
-Promise setPromiseWhatever(Promise *p, PromiseCallBackFunctionPointer whateverCallBack)
+Promise * setPromiseWhatever(Promise *p, PromiseCallBackFunctionPointer whateverCallBack)
 {
 	printf("DBG: whatever value seted for promise: [%p]\n", p); fflush(stdout);
-	return *p;
+	p->_promiseWhateverArray=realloc(p->_promiseWhateverArray, sizeof(PromiseCallBackFunctionPointer) * ++(p->_promiseWhateverArrayLength));
+	printf("DBG: realocated, set...%i\n", (p->_promiseWhateverArrayLength)); fflush(stdout);
+	p->_promiseWhateverArray[(p, p->_promiseWhateverArrayLength)-1]=whateverCallBack;
+	if ( p->state != PromiseStatePending ){
+		printf("DBG: lets call it\n"); fflush(stdout);
+		whateverCallBack(p, p->lastResult);
+	}
+	//printf("DBG: return p %i\n", (int)p);fflush(stdout);
+	return p;
 }
 
 void * whatever(Promise *p, void * result)
 {
-	printf("DBG: whatever value call: [%p]\n", p); fflush(stdout);
-	return result;
+	p->state=PromiseStateFulfilled;
+	printf("DBG: intern whatever fn called: [%p]\n", p); fflush(stdout);
+	p->lastResult=result;
+	int i;
+	for ( i=0; i< (p->_promiseWhateverArrayLength); i++ ){
+		p->lastResult=p->_promiseWhateverArray[i](p, p->lastResult);
+	}
+	return p->lastResult;
 }
 
 void * resolve(Promise *p, void * result)
@@ -96,12 +96,20 @@ void * reject(Promise *p, void * result)
 	return p->lastResult;
 }
 
+void * PromiseThreadFunction( void * vPromise )
+{
+	Promise * promise=(Promise *) vPromise;
+	PromiseBaseFunctionPointer fn=(PromiseBaseFunctionPointer )promise->_functionBase;
+	fn(promise, resolve, reject);
+}
+
 Promise * newPromise(PromiseBaseFunctionPointer functionBase)
 {
 	Promise * retval=(Promise*) malloc( sizeof(Promise) );
 	retval->state=PromiseStatePending;
 
 	retval->_promiseThenArray = malloc(sizeof(PromiseCallBackFunctionPointer));
+	retval->_functionBase=functionBase;
 	retval->_promiseThenArrayLength=0;
 
 	printf("DBG: in newPromise promise is at %p\n",retval);
@@ -115,42 +123,9 @@ Promise * newPromise(PromiseBaseFunctionPointer functionBase)
 	retval->catch=(PromiseFunctionPointer)setPromiseCatch;
 	retval->whatever=(PromiseFunctionPointer)setPromiseWhatever;
 	// call it in a new thread
-	functionBase(retval, resolve, reject);
+	pthread_t threads[1];
+	int rc = pthread_create(&threads[0], NULL, (void *)&PromiseThreadFunction, (void *) retval );
 	//PromiseThreadFunction(retval);
 	return retval;
-}
-
-
-void promiseTest()
-{
-	void functionBaseTest(Promise *ptrPromise, PromiseCallBackFunctionPointer resolve, PromiseCallBackFunctionPointer reject)
-	{
-		printf("DBG: running the base test function ptrPromise at [%p]...\n", ptrPromise);
-		resolve(ptrPromise, "WELL DONE!!!\n");
-	}
-
-	void * fnThenTest(Promise *p, void * result)
-	{
-		printf("DBG: Promise resolved: [%p], fnThenTest result.\n\nPROMISE RESULT: [%s]\n", p, (char *) result);
-		return result;
-	}
-	Promise * promise = newPromise(functionBaseTest);
-	printf("DBG: in promiseTest promise is allocated at %p\n", promise);
-	promise->then(promise,fnThenTest)->then(promise, fnThenTest);
-}
-
-int main(int argc, char * argv[])
-{
-	promiseTest();
-	/*
-	rc = pthread_join(thread[0], &status);
-	if (rc) {
-		printf("ERROR; return code from pthread_join() is %d\n", rc);
-		exit(-1);
-	}
-	*/
-	// end the main thread
-	pthread_exit(NULL);
-	return 0;
 }
 
