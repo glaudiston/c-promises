@@ -17,6 +17,7 @@ typedef struct Promise{
 	PromiseFunctionPointer catch;
 	PromiseFunctionPointer whatever;
 	void * lastResult;
+	pthread_t thread;
 	// internal items
 	int _promiseThenArrayLength;
 	PromiseCallBackFunctionPointer * _promiseThenArray;
