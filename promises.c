@@ -43,7 +43,7 @@ Promise * setPromiseWhatever(Promise *p, PromiseCallBackFunctionPointer whatever
 	return p;
 }
 
-void * whatever(Promise *p, void * result)
+void * whatever(Promise *p, void * result, ...)
 {
 	p->state=PromiseStateFulfilled;
 	p->lastResult=result;
@@ -54,7 +54,7 @@ void * whatever(Promise *p, void * result)
 	return p->lastResult;
 }
 
-void * resolve(Promise *p, void * result)
+void * resolve(Promise *p, void * result, ...)
 {
 	p->state=PromiseStateFulfilled;
 	p->lastResult=result;
@@ -66,7 +66,7 @@ void * resolve(Promise *p, void * result)
 	return p->lastResult;
 }
 
-void * reject(Promise *p, void * result)
+void * reject(Promise *p, void * result, ...)
 {
 	p->state=PromiseStateRejected;
 	p->lastResult=result;
@@ -85,7 +85,7 @@ void * PromiseThreadFunction( void * vPromise )
 	fn(promise, resolve, reject);
 }
 
-Promise * newPromise(PromiseBaseFunctionPointer functionBase)
+Promise * newPromise(PromiseBaseFunctionPointer functionBase, ...)
 {
 	Promise * retval=(Promise*) malloc( sizeof(Promise) );
 	retval->state=PromiseStatePending;

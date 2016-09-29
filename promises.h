@@ -7,9 +7,9 @@
 
 extern int promises;
 struct Promise;
-typedef void *( *PromiseCallBackFunctionPointer )( struct Promise *, void * );
-typedef struct Promise *( *PromiseFunctionPointer )( struct Promise *, PromiseCallBackFunctionPointer );
-typedef void ( *PromiseBaseFunctionPointer )( struct Promise *, PromiseCallBackFunctionPointer, PromiseCallBackFunctionPointer );
+typedef void *( *PromiseCallBackFunctionPointer )( struct Promise *, void *, ... );
+typedef struct Promise *( *PromiseFunctionPointer )( struct Promise *, PromiseCallBackFunctionPointer, ... );
+typedef void ( *PromiseBaseFunctionPointer )( struct Promise *, PromiseCallBackFunctionPointer, PromiseCallBackFunctionPointer, ... );
 
 typedef struct Promise{
 	enum { PromiseStatePending, PromiseStateFulfilled, PromiseStateRejected } state;
@@ -28,8 +28,14 @@ typedef struct Promise{
 	PromiseBaseFunctionPointer _functionBase;
 } Promise;
 
-Promise * newPromise(PromiseBaseFunctionPointer functionBase);
+Promise * newPromise(PromiseBaseFunctionPointer functionBase, ...);
 
 void freePromise(Promise *p);
+
+#define CREATE_PROMISE(promiseName, ...) Promise * promiseName;\
+void fn_##promiseName(Promise *promise, PromiseCallBackFunctionPointer resolve, PromiseCallBackFunctionPointer reject, ... )
+
+#define DO_PROMISE(promiseName, ...) promiseName = newPromise(fn_##promiseName, ##__VA_ARGS__);
+#define PROMISE_CALLBACK(func_name) void * func_name(Promise * promise, void * result, ... )
 
 #endif
