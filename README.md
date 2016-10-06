@@ -12,27 +12,37 @@ look at promise-test.c for sample code.
 
 ```C
 
-void functionBaseTest(Promise *ptrPromise, PromiseCallBackFunctionPointer resolve, PromiseCallBackFunctionPointer reject)
+#include <promises.h>
+// Sample Test Code
+
+CREATE_PROMISE(promiseTest1)
 {
-	resolve(ptrPromise, "SUCCESS");
+	printf("DBG: tes1 - running the base test function ptrPromise at [%p]...\n", promise);
+	resolve(promise, "RESOLVED DONE!!!");
+}
+PROMISE_CALLBACK(fnThenTest)
+{
+	printf("Promise resolved: [%p], fnThenTest result.\n\nPROMISE RESULT: [%s]\n", promise, (char *) result);
+	return result;
+}
+PROMISE_CALLBACK(fnCatchTest)
+{
+	printf("Promise catch error: %s\n", (char *)result);
+	return result;
+}
+PROMISE_CALLBACK(fnWhatever)
+{
+	printf("Promise whatever happens: %s\n", (char *)result);
+	return result;
 }
 
-void * fnThenTest(Promise *p, void * result)
-{
-	printf("Promise resolved: %s\n", p, (char *) result);
-	return result;
-}
-void * fnCatchTest(Promise *p, void * result)
-{
-	printf("Promise returned error: %s", (char *)result);
-	return result;
-}
-void promiseTest()
-{
-	Promise * promise = newPromise(functionBaseTest);
-	printf("DBG: in promiseTest promise is allocated at %p\n", promise);
-	promise->then(promise,fnThenTest)->catch(promise,fnCatchTest)->then(promise, fnThenTest)->whatever(promise, fnWhatever);
-}
+DO_PROMISE(promiseTest1)
+promiseTest1
+	->then(promiseTest1,fnThenTest)
+	->catch(promiseTest1,fnCatchTest)
+	->then(promiseTest1, fnThenTest)
+	->whatever(promiseTest1, fnWhatever);
+
 
 ```
 

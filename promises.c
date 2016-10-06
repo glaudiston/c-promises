@@ -35,7 +35,7 @@ Promise * setPromiseCatch(Promise *p, PromiseCallBackFunctionPointer catchCallBa
 
 Promise * setPromiseWhatever(Promise *p, PromiseCallBackFunctionPointer whateverCallBack)
 {
-	p->_promiseWhateverArray=realloc(p->_promiseWhateverArray, sizeof(PromiseCallBackFunctionPointer) * ++(p->_promiseWhateverArrayLength));
+	p->_promiseWhateverArray=realloc(p->_promiseWhateverArray, sizeof(PromiseCallBackFunctionPointer) * ++p->_promiseWhateverArrayLength);
 	p->_promiseWhateverArray[(p, p->_promiseWhateverArrayLength)-1]=whateverCallBack;
 	if ( p->state != PromiseStatePending ){
 		whateverCallBack(p, p->lastResult);
@@ -88,16 +88,19 @@ void * PromiseThreadFunction( void * vPromise )
 Promise * newPromise(PromiseBaseFunctionPointer functionBase, ...)
 {
 	Promise * retval=(Promise*) malloc( sizeof(Promise) );
+	va_start( retval->arguments, functionBase );
 	retval->state=PromiseStatePending;
 
 	retval->_promiseThenArray = malloc(sizeof(PromiseCallBackFunctionPointer));
-	retval->_functionBase=functionBase;
 	retval->_promiseThenArrayLength=0;
-
+	retval->_promiseCatchArray = malloc(sizeof(PromiseCallBackFunctionPointer));
+	retval->_promiseCatchArrayLength=0;
+	retval->_promiseWhateverArray = malloc(sizeof(PromiseCallBackFunctionPointer));
+	retval->_promiseWhateverArrayLength=0;
+	retval->_functionBase=functionBase;
 
 	void * lastResult;
 
-	int promiseCatchArrayLength=0;
 	PromiseFunctionPointer * promiseCatchArray;
 
 	retval->then=(PromiseFunctionPointer)setPromiseThen;
@@ -106,6 +109,7 @@ Promise * newPromise(PromiseBaseFunctionPointer functionBase, ...)
 	// call it in a new thread
 	int rc = pthread_create(&retval->thread, NULL, (void *)&PromiseThreadFunction, (void *) retval );
 	//PromiseThreadFunction(retval);
+
 	return retval;
 }
 
